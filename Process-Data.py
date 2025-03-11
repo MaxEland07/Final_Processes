@@ -1,24 +1,45 @@
 import os
 import numpy as np
 import wfdb
+from scipy.signal import butter, filtfilt
 
+# Define directories
 base_dir = "./MIT-BIH Arrhythmia Database"
 raw_dir = os.path.join(base_dir, "Raw-Data")
 processed_dir = os.path.join(base_dir, "Processed-Data")
 
+# Define filter design functions
+def butter_highpass(cutoff, fs, order=5):
+    """Design a high-pass Butterworth filter."""
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype='high', analog=False)
+    return b, a
+
+def butter_lowpass(cutoff, fs, order=5):
+    """Design a low-pass Butterworth filter."""
+    nyquist = 0.5 * fs
+    normal_cutoff = cutoff / nyquist
+    b, a = butter(order, normal_cutoff, btype='low', analog=False)
+    return b, a
+
+def apply_filter(data, b, a):
+    """Apply the designed filter to the data."""
+    return filtfilt(b, a, data, axis=0)
+
 def preprocess_data():
     print("Preprocessing MIT-BIH data into full records...")
-    
+
     # Create the processed_dir if it doesn't exist
     if not os.path.exists(processed_dir):
         os.makedirs(processed_dir)
         print(f"Created directory: {processed_dir}")
-    
+
     records = [f.split('.')[0] for f in os.listdir(raw_dir) if f.endswith('.hea')]
     if not records:
         print("No records found in Raw-Data directory. Please run the download script first.")
         return
-    
+
     # Delete existing files in the processed directory
     for file in os.listdir(processed_dir):
         file_path = os.path.join(processed_dir, file)
@@ -28,27 +49,42 @@ def preprocess_data():
                 print(f"Deleted existing file: {file}")
         except Exception as e:
             print(f"Error deleting {file}: {e}")
-    
+
+    # Filter parameters
+    highpass_cutoff = 0.5  # Hz (to remove baseline wander)
+    lowpass_cutoff = 150   # Hz (to remove high-frequency noise)
+
     for record in records:
         try:
             record_path = os.path.join(raw_dir, record)
             data = wfdb.rdrecord(record_path)
             ann = wfdb.rdann(record_path, 'atr')
-            
+
             signals = data.p_signal
             fs = data.fs
             sample_indices = ann.sample
             labels = ann.symbol
-            
+
+            # Design filters
+            hp_b, hp_a = butter_highpass(highpass_cutoff, fs)
+            lp_b, lp_a = butter_lowpass(lowpass_cutoff, fs)
+
+            # Apply high-pass filter (baseline wander removal)
+            filtered_signals = apply_filter(signals, hp_b, hp_a)
+
+            # Apply low-pass filter (high-frequency noise removal)
+            filtered_signals = apply_filter(filtered_signals, lp_b, lp_a)
+
+            # Save preprocessed signals to file
             output_file = os.path.join(processed_dir, f"{record}_full.npz")
             np.savez(output_file,
-                     signals=signals,
+                     signals=filtered_signals,
                      sample_indices=sample_indices,
                      labels=labels,
                      fs=fs)
-            
-            print(f"Processed {record}: Full record saved to {output_file} (shape: {signals.shape})")
-            
+
+            print(f"Processed {record}: Full record saved to {output_file} (shape: {filtered_signals.shape})")
+
         except Exception as e:
             print(f"Error processing {record}: {e}")
 

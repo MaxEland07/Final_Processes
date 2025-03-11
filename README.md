@@ -51,6 +51,8 @@ Potential next steps for this project include:
 
 - Need to add varying levels of noise at specific SNRs to each record.
 -- Need to make these accurate to real world 
+-- https://ime.um.edu.mo/wp-content/uploads/presentations/8555ab0da8e657ce9ef794577f1e1bd9.pdf
+-- Gives 
 - Need a way to structure project
 - Need a way to have many denosing techniques run
 - Need to Calculate increase in SNR over different noises and combinations of noises 
@@ -63,6 +65,11 @@ Potential next steps for this project include:
 - Power line
 - Muscle artifact
 - Gaussian 
+- Electrode Motion
+- BW + MA
+- PL + G
+- BW + PL
+- ALL
 
 ### Measuring improvement 
 

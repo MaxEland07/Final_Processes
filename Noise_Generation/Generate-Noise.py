@@ -15,8 +15,8 @@ os.makedirs(noise_dir, exist_ok=True)
 # Use record 100
 records = ["100_full.npz"]
 
-# Define SNR levels (in dB)
-snr_levels = [-6, 0, 6, 12, 18, 24]
+# Define SNR level (in dB) - only -6 dB for testing
+snr_level = -6
 
 # Define noise types with abbreviations
 noise_types = {
@@ -40,12 +40,12 @@ configs = [
     ["Gaussian", "Baseline Wander", "Power Line", "Muscle Artifact", "Electrode Motion"]
 ]
 
-# Enhanced noise generation functions
+# Noise generation functions with power normalization
 
 def generate_baseline_wander(signal_shape, p_noise, fs):
     t = np.arange(signal_shape[0]) / fs
-    freqs = [0.05, 0.1, 0.2, 0.3]  # Frequencies in Hz
-    power_distribution = [0.3, 0.3, 0.25, 0.15]  # 30%, 30%, 25%, 15%
+    freqs = [0.05, 0.1, 0.2, 0.3]
+    power_distribution = [0.3, 0.3, 0.25, 0.15]
     
     noise = np.zeros(signal_shape[0])
     for i, freq in enumerate(freqs):
@@ -55,13 +55,17 @@ def generate_baseline_wander(signal_shape, p_noise, fs):
     
     noise = noise[:, np.newaxis]
     noise = np.repeat(noise, signal_shape[1], axis=1)
+    
+    # Normalize to match target power
+    p_noise_actual = np.var(noise[:, 0])
+    noise *= np.sqrt(p_noise / p_noise_actual) if p_noise_actual > 0 else 1
     return noise
 
 def generate_power_line_interference(signal_shape, p_noise, fs):
     t = np.arange(signal_shape[0]) / fs
-    f_line = 50  # Change to 50 for European standard
-    harmonics = [1, 2, 3]  # Fundamental, 2nd, and 3rd harmonic
-    power_distribution = [0.7, 0.2, 0.1]  # 70%, 20%, 10% of power
+    f_line = 50
+    harmonics = [1, 2, 3]
+    power_distribution = [0.7, 0.2, 0.1]
     
     noise = np.zeros(signal_shape[0])
     for i, h in enumerate(harmonics):
@@ -75,6 +79,10 @@ def generate_power_line_interference(signal_shape, p_noise, fs):
     
     noise = noise[:, np.newaxis]
     noise = np.repeat(noise, signal_shape[1], axis=1)
+    
+    # Normalize to match target power
+    p_noise_actual = np.var(noise[:, 0])
+    noise *= np.sqrt(p_noise / p_noise_actual) if p_noise_actual > 0 else 1
     return noise
 
 def generate_muscle_artifact(signal_shape, p_noise, fs):
@@ -106,6 +114,9 @@ def generate_muscle_artifact(signal_shape, p_noise, fs):
     noise = filtered_noise[:, np.newaxis]
     noise = np.repeat(noise, signal_shape[1], axis=1)
     
+    # Normalize to match target power
+    p_noise_actual = np.var(noise[:, 0])
+    noise *= np.sqrt(p_noise / p_noise_actual) if p_noise_actual > 0 else 1
     return noise
 
 def generate_electrode_motion_artifact(signal_shape, p_noise, fs):
@@ -130,6 +141,9 @@ def generate_electrode_motion_artifact(signal_shape, p_noise, fs):
     noise = noise[:, np.newaxis]
     noise = np.repeat(noise, signal_shape[1], axis=1)
     
+    # Normalize to match target power
+    p_noise_actual = np.var(noise[:, 0])
+    noise *= np.sqrt(p_noise / p_noise_actual) if p_noise_actual > 0 else 1
     return noise
 
 def generate_combined_noise(noise_types, signal_shape, p_noise_total, fs):
@@ -162,6 +176,9 @@ def generate_combined_noise(noise_types, signal_shape, p_noise_total, fs):
         
         total_noise += noise
     
+    # Normalize combined noise to match total power
+    p_noise_actual = np.var(total_noise[:, 0])
+    total_noise *= np.sqrt(p_noise_total / p_noise_actual) if p_noise_actual > 0 else 1
     return total_noise
 
 # Main loop to generate noisy data
@@ -172,8 +189,8 @@ for record in records:
     clean_signal = data["signals"]  # Shape: [n_samples, 2]
     fs = data["fs"]                 # Sampling frequency (e.g., 360 Hz)
 
-    # Compute signal power (average variance across channels)
-    p_signal = np.mean(np.var(clean_signal, axis=0))
+    # Compute signal power using only the first channel
+    p_signal = np.var(clean_signal[:, 0])
 
     for config in configs:
         # Generate config name (e.g., "G", "BW_MA")
@@ -181,27 +198,31 @@ for record in records:
         config_dir = os.path.join(noise_dir, config_name)
         os.makedirs(config_dir, exist_ok=True)
 
-        for snr in snr_levels:
-            # Compute total noise power for the desired SNR
-            p_noise_total = p_signal / (10 ** (snr / 10))
+        # Compute total noise power for the desired SNR
+        p_noise_total = p_signal / (10 ** (snr_level / 10))
 
-            # Generate combined noise
-            total_noise = generate_combined_noise(config, clean_signal.shape, p_noise_total, fs)
+        # Process each channel separately
+        noisy_signals = np.zeros_like(clean_signal)
+        for ch in range(clean_signal.shape[1]):
+            # Generate noise for the current channel with independent random seed
+            np.random.seed(np.random.randint(1000) + ch)
+            total_noise = generate_combined_noise(config, (clean_signal.shape[0], 1), p_noise_total, fs)
+            noisy_signals[:, ch] = clean_signal[:, ch] + total_noise[:, 0]
 
-            # Create noisy signal
-            noisy_signal = clean_signal + total_noise
-
-            # Save to file
-            record_name = record.replace(".npz", "")
-            output_file = f"record_{record_name}_{snr}dB.npz"
-            output_path = os.path.join(config_dir, output_file)
-            np.savez_compressed(
-                output_path,
-                signals=noisy_signal,
-                sample_indices=data["sample_indices"],
-                labels=data["labels"],
-                fs=fs
-            )
-            print(f"Saved {output_file} in {config_dir}")
+        # Save to file
+        record_name = record.replace(".npz", "")
+        output_file = f"record_{record_name}_{snr_level}dB.npz"
+        output_path = os.path.join(config_dir, output_file)
+        np.savez_compressed(
+            output_path,
+            signals=noisy_signals,
+            sample_indices=data["sample_indices"],
+            labels=data["labels"],
+            fs=fs
+        )
+        # Verify actual SNR
+        p_noise_actual = np.var(noisy_signals[:, 0] - clean_signal[:, 0])
+        actual_snr = 10 * np.log10(p_signal / p_noise_actual)
+        print(f"Saved {output_file} in {config_dir}, Target SNR: {snr_level} dB, Actual SNR: {actual_snr:.2f} dB")
 
 print("Noise generation complete.")

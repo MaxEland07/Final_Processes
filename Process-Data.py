@@ -28,17 +28,16 @@ def apply_filter(data, b, a):
     return filtfilt(b, a, data, axis=0)
 
 def preprocess_data():
-    print("Preprocessing MIT-BIH data into full records...")
+    print("Preprocessing MIT-BIH data into full record...")
 
     # Create the processed_dir if it doesn't exist
     if not os.path.exists(processed_dir):
         os.makedirs(processed_dir)
         print(f"Created directory: {processed_dir}")
 
-    records = [f.split('.')[0] for f in os.listdir(raw_dir) if f.endswith('.hea')]
-    if not records:
-        print("No records found in Raw-Data directory. Please run the download script first.")
-        return
+    # Use only record "100" (you can change this to any specific record)
+    record = "100"
+    record_path = os.path.join(raw_dir, record)
 
     # Delete existing files in the processed directory
     for file in os.listdir(processed_dir):
@@ -50,43 +49,40 @@ def preprocess_data():
         except Exception as e:
             print(f"Error deleting {file}: {e}")
 
-    # Filter parameters
-    highpass_cutoff = 0.5  # Hz (to remove baseline wander)
-    lowpass_cutoff = 50   # Hz (to remove high-frequency noise)
+    try:
+        # Load the specific record
+        data = wfdb.rdrecord(record_path)
+        ann = wfdb.rdann(record_path, 'atr')
 
-    for record in records:
-        try:
-            record_path = os.path.join(raw_dir, record)
-            data = wfdb.rdrecord(record_path)
-            ann = wfdb.rdann(record_path, 'atr')
+        signals = data.p_signal
+        fs = data.fs
+        sample_indices = ann.sample
+        labels = ann.symbol
 
-            signals = data.p_signal
-            fs = data.fs
-            sample_indices = ann.sample
-            labels = ann.symbol
+        # Design filters
+        highpass_cutoff = 0.5  # Hz (to remove baseline wander)
+        lowpass_cutoff = 50   # Hz (to remove high-frequency noise)
+        hp_b, hp_a = butter_highpass(highpass_cutoff, fs)
+        lp_b, lp_a = butter_lowpass(lowpass_cutoff, fs)
 
-            # Design filters
-            hp_b, hp_a = butter_highpass(highpass_cutoff, fs)
-            lp_b, lp_a = butter_lowpass(lowpass_cutoff, fs)
+        # Apply high-pass filter (baseline wander removal)
+        filtered_signals = apply_filter(signals, hp_b, hp_a)
 
-            # Apply high-pass filter (baseline wander removal)
-            filtered_signals = apply_filter(signals, hp_b, hp_a)
+        # Apply low-pass filter (high-frequency noise removal)
+        filtered_signals = apply_filter(filtered_signals, lp_b, lp_a)
 
-            # Apply low-pass filter (high-frequency noise removal)
-            filtered_signals = apply_filter(filtered_signals, lp_b, lp_a)
+        # Save preprocessed signals to file
+        output_file = os.path.join(processed_dir, f"{record}_full.npz")
+        np.savez(output_file,
+                 signals=filtered_signals,
+                 sample_indices=sample_indices,
+                 labels=labels,
+                 fs=fs)
 
-            # Save preprocessed signals to file
-            output_file = os.path.join(processed_dir, f"{record}_full.npz")
-            np.savez(output_file,
-                     signals=filtered_signals,
-                     sample_indices=sample_indices,
-                     labels=labels,
-                     fs=fs)
+        print(f"Processed {record}: Full record saved to {output_file} (shape: {filtered_signals.shape})")
 
-            print(f"Processed {record}: Full record saved to {output_file} (shape: {filtered_signals.shape})")
-
-        except Exception as e:
-            print(f"Error processing {record}: {e}")
+    except Exception as e:
+        print(f"Error processing {record}: {e}")
 
 if __name__ == "__main__":
     preprocess_data()

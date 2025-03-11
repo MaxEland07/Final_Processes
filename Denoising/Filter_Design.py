@@ -76,15 +76,15 @@ filter_techniques = {
     "Moving Average": apply_moving_average
 }
 
-# Main function to process a specific record
-def process_record(record_id, snr_levels=[-6, 0, 6, 12, 18, 24]):
-    """Process a specific record across all noise types and SNR levels"""
+# Main function to process Record 100
+def process_record(record_id="100", snr_levels=[-6, 0, 6, 12, 18, 24]):
+    """Process Record 100 across all noise types and SNR levels"""
     results = []
     
     # Load clean signal
-    clean_record_path = os.path.join(processed_dir, f"{record_id}.npz")
+    clean_record_path = os.path.join(processed_dir, f"{record_id}_full.npz")
     if not os.path.exists(clean_record_path):
-        print(f"Record {record_id} not found in {processed_dir}. Please run Process-Data.py first.")
+        print(f"Clean record {record_id}_full.npz not found in {processed_dir}. Please run Process-Data.py first.")
         return None
     
     clean_data = np.load(clean_record_path)
@@ -104,7 +104,7 @@ def process_record(record_id, snr_levels=[-6, 0, 6, 12, 18, 24]):
         
         # Process each SNR level
         for snr in snr_levels:
-            noisy_file = f"{record_id}_{snr}dB.npz"
+            noisy_file = f"record_{record_id}_full_{snr}dB.npz"
             noisy_path = os.path.join(noise_config_dir, noisy_file)
             
             if not os.path.exists(noisy_path):
@@ -232,7 +232,7 @@ def plot_summary_results(results_df, record_id):
     plt.close()
 
 if __name__ == "__main__":
-    record_id = input("Enter the record ID to process (e.g., 100): ").strip()
+    record_id = "100"  # Hardcoded to Record 100
     print(f"Starting ECG signal denoising for Record {record_id}...")
     results = process_record(record_id)
     if results is not None:

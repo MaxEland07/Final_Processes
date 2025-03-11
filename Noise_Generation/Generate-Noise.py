@@ -12,8 +12,8 @@ if os.path.exists(noise_dir):
     shutil.rmtree(noise_dir)
 os.makedirs(noise_dir, exist_ok=True)
 
-# Use first 1records for testing (adjust as needed)
-records = os.listdir(processed_dir)[:1]
+# Use record 100
+records = ["100_full.npz"]
 
 # Define SNR levels (in dB)
 snr_levels = [-6, 0, 6, 12, 18, 24]

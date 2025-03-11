@@ -9,6 +9,11 @@ processed_dir = os.path.join(base_dir, "Processed-Data")
 def preprocess_data():
     print("Preprocessing MIT-BIH data into full records...")
     
+    # Create the processed_dir if it doesn't exist
+    if not os.path.exists(processed_dir):
+        os.makedirs(processed_dir)
+        print(f"Created directory: {processed_dir}")
+    
     records = [f.split('.')[0] for f in os.listdir(raw_dir) if f.endswith('.hea')]
     if not records:
         print("No records found in Raw-Data directory. Please run the download script first.")

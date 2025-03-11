@@ -44,3 +44,29 @@ Potential next steps for this project include:
 - Introducing artificial noise at specific SNR levels
 - Implementing and evaluating denoising techniques
 - Developing classification models for ECG analysis
+
+## Noise 
+
+- Need to add varying levels of noise at specific SNRs to each record.
+-- Need to make these accurate to real world 
+- Need a way to structure project
+- Need a way to have many denosing techniques run
+- Need to Calculate increase in SNR over different noises and combinations of noises 
+-Record results in table
+
+
+### Types of noise 
+
+- Baseline wander
+- Power line
+- Muscle artifact
+- Gaussian 
+
+### Measuring improvement 
+
+- SNR
+- MSE
+
+Okay so the first thing to do is make some noisy data: 
+
+I want specified SNR's of -6dB, 0dB, 6dB, 12dB, 18dB, and 24dB. 

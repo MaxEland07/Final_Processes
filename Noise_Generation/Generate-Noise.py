@@ -189,8 +189,8 @@ for record in records:
     clean_signal = data["signals"]  # Shape: [n_samples, 2]
     fs = data["fs"]                 # Sampling frequency (e.g., 360 Hz)
 
-    # Compute signal power using only the first channel
-    p_signal = np.var(clean_signal[:, 0])
+    # Compute signal power using the average variance across both channels
+    p_signal = np.mean(np.var(clean_signal, axis=0))
 
     for config in configs:
         # Generate config name (e.g., "G", "BW_MA")
@@ -209,6 +209,13 @@ for record in records:
             total_noise = generate_combined_noise(config, (clean_signal.shape[0], 1), p_noise_total, fs)
             noisy_signals[:, ch] = clean_signal[:, ch] + total_noise[:, 0]
 
+        # Verify and adjust noise power to ensure target SNR
+        noise_component = noisy_signals - clean_signal
+        p_noise_actual = np.mean(np.var(noise_component, axis=0))
+        if p_noise_actual > 0:
+            scaling_factor = np.sqrt(p_noise_total / p_noise_actual)
+            noisy_signals = clean_signal + noise_component * scaling_factor
+
         # Save to file
         record_name = record.replace(".npz", "")
         output_file = f"record_{record_name}_{snr_level}dB.npz"
@@ -221,7 +228,7 @@ for record in records:
             fs=fs
         )
         # Verify actual SNR
-        p_noise_actual = np.var(noisy_signals[:, 0] - clean_signal[:, 0])
+        p_noise_actual = np.mean(np.var(noisy_signals - clean_signal, axis=0))
         actual_snr = 10 * np.log10(p_signal / p_noise_actual)
         print(f"Saved {output_file} in {config_dir}, Target SNR: {snr_level} dB, Actual SNR: {actual_snr:.2f} dB")
 

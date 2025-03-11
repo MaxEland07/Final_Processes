@@ -1,7 +1,7 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from scipy import signal  # Ensure scipy.signal is imported
+from scipy import signal
 import pandas as pd
 from sklearn.metrics import mean_squared_error
 
@@ -41,35 +41,35 @@ def calculate_mse(clean_signal, noisy_signal, denoised_signal=None):
     return mse_noisy
 
 # Define filtering techniques
-def apply_butterworth(signal_data, fs, lowcut=0.5, highcut=45, order=4):
+def apply_butterworth(data, fs, lowcut=0.5, highcut=45, order=4):
     """Apply Butterworth bandpass filter"""
     nyq = 0.5 * fs
     low = lowcut / nyq
     high = highcut / nyq
     b, a = signal.butter(order, [low, high], btype='band')
-    return signal.filtfilt(b, a, signal_data, axis=0)
+    return signal.filtfilt(b, a, data, axis=0)
 
-def apply_savitzky_golay(signal_data, window_length=15, polyorder=3):
+def apply_savitzky_golay(data, window_length=15, polyorder=3):
     """Apply Savitzky-Golay filter"""
-    return signal.savgol_filter(signal_data, window_length, polyorder, axis=0)
+    return signal.savgol_filter(data, window_length, polyorder, axis=0)
 
-def apply_wavelet_denoising(signal, wavelet='db4', level=4):
+def apply_wavelet_denoising(data, wavelet='db4', level=4):
     """Apply wavelet denoising"""
     from pywt import wavedec, waverec, threshold
-    denoised = np.zeros_like(signal)
-    for channel in range(signal.shape[1]):
-        coeffs = wavedec(signal[:, channel], wavelet, level=level)
+    denoised = np.zeros_like(data)
+    for channel in range(data.shape[1]):
+        coeffs = wavedec(data[:, channel], wavelet, level=level)
         for i in range(1, len(coeffs)):
             coeffs[i] = threshold(coeffs[i], value=np.std(coeffs[i])/2, mode='soft')
         denoised[:, channel] = waverec(coeffs, wavelet)
     return denoised
 
-def apply_moving_average(signal_data, window_size=5):
-    """Apply moving average filter to each channel"""
-    denoised = np.zeros_like(signal_data)
-    kernel = np.ones(window_size) / window_size
-    for channel in range(signal_data.shape[1]):
-        denoised[:, channel] = np.convolve(signal_data[:, channel], kernel, mode='same')
+def apply_moving_average(data, window_size=5):
+    """Apply moving average filter"""
+    kernel = np.ones((window_size,)) / window_size
+    denoised = np.zeros_like(data)
+    for channel in range(data.shape[1]):
+        denoised[:, channel] = np.convolve(data[:, channel], kernel, mode='same')
     return denoised
 
 # Filter techniques dictionary
@@ -80,9 +80,11 @@ filter_techniques = {
     "Moving Average": apply_moving_average
 }
 
-# Main function to process Record 100
-def process_record(record_id="100", snr_levels=[-6, 0, 6, 12, 18, 24]):
-    """Process Record 100 across all noise types and SNR levels"""
+# Main function to process Record 100 at all SNRs
+def process_record(record_id="100", snr_levels=[0, 6, 12, -6]):
+    """Process Record 100 across all noise types and specified SNR levels"""
+    results = []
+    
     # Load clean signal
     clean_record_path = os.path.join(processed_dir, f"{record_id}_full.npz")
     if not os.path.exists(clean_record_path):
@@ -93,8 +95,10 @@ def process_record(record_id="100", snr_levels=[-6, 0, 6, 12, 18, 24]):
     clean_signal = clean_data["signals"]
     fs = clean_data["fs"]
     
-    # Results list to build DataFrame
-    results_list = []
+    # Results dataframe
+    columns = ["Record_ID", "Noise_Type", "SNR_Level", "Filter_Technique", 
+               "Original_SNR", "Improved_SNR", "SNR_Gain", "Original_MSE", "Improved_MSE"]
+    results_df = pd.DataFrame(columns=columns)
     
     # Process each noise type
     for noise_type in os.listdir(noise_dir):
@@ -129,8 +133,8 @@ def process_record(record_id="100", snr_levels=[-6, 0, 6, 12, 18, 24]):
                 snr_gain = imp_snr - orig_snr
                 orig_mse, imp_mse = calculate_mse(clean_signal, noisy_signal, denoised_signal)
                 
-                # Store results in list
-                results_list.append({
+                # Store results
+                results_df = pd.concat([results_df, pd.DataFrame([{
                     "Record_ID": record_id,
                     "Noise_Type": noise_type,
                     "SNR_Level": snr,
@@ -140,31 +144,32 @@ def process_record(record_id="100", snr_levels=[-6, 0, 6, 12, 18, 24]):
                     "SNR_Gain": snr_gain,
                     "Original_MSE": orig_mse,
                     "Improved_MSE": imp_mse
-                })
+                }])], ignore_index=True)
                 
-                # Save denoised signal and visualization for SNR 0, 6, 12 only
-                if snr in [0, 6, 12]:
-                    output_dir = os.path.join(denoised_dir, noise_type, filter_name)
-                    os.makedirs(output_dir, exist_ok=True)
-                    output_path = os.path.join(output_dir, f"{record_id}_{snr}dB_{filter_name}.npz")
-                    
-                    np.savez_compressed(
-                        output_path,
-                        signals=denoised_signal,
-                        sample_indices=noisy_data["sample_indices"],
-                        labels=noisy_data["labels"],
-                        fs=fs
-                    )
-                    
-                    visualize_results(clean_signal, noisy_signal, denoised_signal, 
-                                    noise_type, filter_name, snr, record_id, 
-                                    orig_snr, imp_snr, orig_mse, imp_mse)
+                # Save denoised signal and visualization
+                output_dir = os.path.join(denoised_dir, noise_type, filter_name)
+                os.makedirs(output_dir, exist_ok=True)
+                output_path = os.path.join(output_dir, f"{record_id}_{snr}dB_{filter_name}.npz")
+                
+                np.savez_compressed(
+                    output_path,
+                    signals=denoised_signal,
+                    sample_indices=noisy_data["sample_indices"],
+                    labels=noisy_data["labels"],
+                    fs=fs
+                )
+                
+                visualize_results(clean_signal, noisy_signal, denoised_signal, 
+                                noise_type, filter_name, snr, record_id, 
+                                orig_snr, imp_snr, orig_mse, imp_mse)
     
-    # Create DataFrame from results list
-    results_df = pd.DataFrame(results_list)
-    
-    # Save results
+    # Save results to CSV
     results_df.to_csv(os.path.join(results_dir, f"filter_performance_{record_id}.csv"), index=False)
+    
+    # Display table in console
+    print("\nFiltering Results Table:")
+    print(results_df.to_string(index=False))
+    
     plot_summary_results(results_df, record_id)
     
     return results_df
@@ -236,8 +241,9 @@ def plot_summary_results(results_df, record_id):
 
 if __name__ == "__main__":
     record_id = "100"  # Hardcoded to Record 100
-    print(f"Starting ECG signal denoising for Record {record_id}...")
-    results = process_record(record_id, snr_levels=[6])
+    snr_levels = [0, 6, 12, -6]  # Specify all SNR levels to process
+    print(f"Starting ECG signal denoising for Record {record_id} at SNR levels: {snr_levels} dB...")
+    results = process_record(record_id, snr_levels)
     if results is not None:
         print(f"Denoising complete. Results saved to filter_performance_{record_id}.csv")
     else:

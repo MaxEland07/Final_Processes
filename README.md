@@ -1,51 +1,72 @@
-# ECG Signal Analysis Project
+# ECG Signal Analysis and Denoising Project
 
-### Overview
-This project focuses on analyzing electrocardiogram (ECG) data from the MIT-BIH Arrhythmia Database. The goal is to prepare ECG data for further analysis, which may include classification and denoising techniques.
+## Overview
+This project focuses on evaluating the performance of ECG denoising techniques under various noise conditions. We process ECG data from the MIT-BIH Arrhythmia Database, add synthetic noise at different signal-to-noise ratio (SNR) levels, and then evaluate various filtering methods to remove this noise.
 
-### Data Source
-We use the **MIT-BIH Arrhythmia Database**, a standard dataset for ECG analysis research. This database contains 48 half-hour excerpts of two-channel ambulatory ECG recordings from 47 subjects.
-
-### Project Structure
+## Project Structure
 - **Download-Data.py**: Script to download the MIT-BIH Arrhythmia Database
-- **Process-Data.py**: Script to preprocess the raw ECG data
-- **MIT-BIH Arrhythmia Database/**: Directory containing the dataset
-  - **Raw-Data/**: Contains the downloaded raw files
-  - **Processed-Data/**: Contains the processed data files
-- **Visulisations/**: Directory for visualization scripts and outputs
+- **Process-Data.py**: Script to preprocess the raw ECG data with basic filters
+- **Noise_Generation/Generate-Noise.py**: Script to add different types of noise to the ECG signals
+- **Denoising/Filter_Design.py**: Script to apply various denoising techniques and evaluate performance
+- **MIT-BIH Arrhythmia Database/**: Directory containing:
+  - **Raw-Data/**: Original downloaded database files
+  - **Processed-Data/**: Cleaned and preprocessed ECG signals
+  - **Noise-Data/**: ECG signals with synthetic noise added
+  - **Denoised-Data/**: ECG signals after applying denoising techniques
+- **Results/**: Directory containing performance metrics of denoising techniques
+- **Visulisations/**: Directory containing visualizations and comparisons
 
-### Workflow
+## Workflow
 
-#### 1. Data Acquisition
+### 1. Data Acquisition
 The `Download-Data.py` script:
-- Uses the `wfdb` library to download all records from the MIT-BIH Arrhythmia dataset
-- Saves the raw data files (`.dat`, `.hea`, and `.atr` files) in the `Raw-Data` directory
+- Uses the `wfdb` library to download records from the MIT-BIH Arrhythmia dataset
+- Saves the raw data files (`.dat`, `.hea`, and `.atr`) in the `Raw-Data` directory
 
-Each record consists of:
-- **`.dat`**: Contains the digitized ECG signal data
-- **`.hea`**: Header file with metadata about the record
-- **`.atr`**: Annotation file containing beat labels and their locations
-
-#### 2. Data Preprocessing
+### 2. Data Preprocessing
 The `Process-Data.py` script:
-- Reads both ECG signal channels and their annotations using the `wfdb` library
-- Processes each record to extract the full signal data and corresponding annotations
-- Saves each full record as a `.npz` file in the `Processed-Data` directory
+- Reads ECG signal channels and their annotations
+- Applies basic filtering to remove baseline wander (high-pass filter at 0.5 Hz)
+- Removes high-frequency noise (low-pass filter at 50 Hz)
+- Saves each record as a `.npz` file in the `Processed-Data` directory
 
-Each `.npz` file contains:
-- **`signals`**: The complete ECG signal data (typically with shape [n_samples, 2] for two channels)
-- **`sample_indices`**: Indices where annotations occur in the signal
-- **`labels`**: Heartbeat annotations/labels at those indices
-- **`fs`**: The sampling frequency of the signal (typically 360 Hz)
+### 3. Noise Generation
+The `Noise_Generation/Generate-Noise.py` script:
+- Adds synthetic noise to the preprocessed ECG signals at various SNR levels (-6 to 24 dB)
+- Implements multiple noise types that mimic real-world ECG recording conditions:
+  - **Gaussian Noise (G)**: Random noise following normal distribution
+  - **Baseline Wander (BW)**: Low-frequency oscillations simulating respiration and body movement
+  - **Power Line Interference (PL)**: 50/60 Hz interference from power supplies
+  - **Muscle Artifact (MA)**: High-frequency noise simulating EMG contamination
+  - **Electrode Motion (EM)**: Abrupt changes mimicking electrode movement
+- Creates combinations of these noise types to simulate complex real-world scenarios
+- Saves noisy signals in the `Noise-Data` directory, organized by noise type and SNR level
 
- image.png
+### 4. Signal Denoising
+The `Denoising/Filter_Design.py` script:
+- Implements multiple filtering techniques:
+  - **Butterworth Bandpass**: Classical approach for removing noise outside specific frequency bands
+  - **Savitzky-Golay**: Smoothing filter that preserves signal features
+  - **Wavelet Denoising**: Multi-resolution approach that separates signal from noise
+  - **Moving Average**: Simple smoothing filter for comparison
+- Applies these techniques to the noisy signals
+- Calculates SNR before and after filtering to measure performance
+- Saves denoised signals in the `Denoised-Data` directory
+- Generates visualizations comparing original, noisy, and denoised signals
+- Creates performance summaries comparing filter effectiveness across noise types and SNR levels
 
-### Future Work
-Potential next steps for this project include:
-- Segmenting the data into individual heartbeats
-- Introducing artificial noise at specific SNR levels
-- Implementing and evaluating denoising techniques
-- Developing classification models for ECG analysis
+## Results
+The filtering results are summarized in:
+- **filter_performance.csv**: Comprehensive metrics on each filter's performance
+- **Visualization plots**: Visual comparisons of original, noisy, and denoised signals
+- **Summary charts**: Performance comparisons across noise types and SNR levels
+
+## Conclusion
+This project provides a framework for:
+1. Evaluating the robustness of ECG denoising techniques under various noise conditions
+2. Identifying optimal filtering approaches for specific noise types
+3. Understanding the relationship between SNR levels and filter performance
+4. Establishing best practices for ECG signal preprocessing in both clinical and wearable device applications
 
 ## Noise 
 

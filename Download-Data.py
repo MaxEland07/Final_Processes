@@ -25,7 +25,7 @@ def download_data():
     for record in records:
         print(f"Downloading {record}...")
         try:
-            wfdb.dl_database('mitdb', records=record, dl_dir=raw_dir) 
+            wfdb.dl_database('mitdb', records=[record], dl_dir=raw_dir) 
         except Exception as e:
             print(f"Error downloading {record}: {e}")
 

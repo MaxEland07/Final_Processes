@@ -2,7 +2,9 @@ import os
 import numpy as np
 import wfdb
 
-# ... (keep the existing directory definitions)
+base_dir = "./MIT-BIH Arrhythmia Database"
+raw_dir = os.path.join(base_dir, "Raw-Data")
+processed_dir = os.path.join(base_dir, "Processed-Data")
 
 def preprocess_data():
     print("Preprocessing MIT-BIH data into full records...")

@@ -52,7 +52,7 @@ def preprocess_data():
 
     # Filter parameters
     highpass_cutoff = 0.5  # Hz (to remove baseline wander)
-    lowpass_cutoff = 150   # Hz (to remove high-frequency noise)
+    lowpass_cutoff = 50   # Hz (to remove high-frequency noise)
 
     for record in records:
         try:

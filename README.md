@@ -38,6 +38,8 @@ Each `.npz` file contains:
 - **`labels`**: Heartbeat annotations/labels at those indices
 - **`fs`**: The sampling frequency of the signal (typically 360 Hz)
 
+ image.png
+
 ### Future Work
 Potential next steps for this project include:
 - Segmenting the data into individual heartbeats

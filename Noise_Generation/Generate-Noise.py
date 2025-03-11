@@ -13,7 +13,7 @@ if os.path.exists(noise_dir):
 os.makedirs(noise_dir, exist_ok=True)
 
 # Use first 3 records for testing (adjust as needed)
-records = os.listdir(processed_dir)[:1]
+records = os.listdir(processed_dir)[:3]
 
 # Define SNR levels (in dB)
 snr_levels = [-6, 0, 6, 12, 18, 24]
@@ -53,25 +53,21 @@ def generate_noise(noise_type, signal_shape, p_noise, fs):
     """
     if noise_type == "Gaussian":
         noise = np.random.normal(0, np.sqrt(p_noise), signal_shape)
-
     elif noise_type == "Baseline Wander":
         t = np.arange(signal_shape[0]) / fs
         freq = np.random.uniform(0.1, 0.5)  # Low frequency between 0.1-0.5 Hz
         amplitude = np.sqrt(2 * p_noise)    # Power = A^2 / 2
         noise = amplitude * np.sin(2 * np.pi * freq * t)[:, np.newaxis]
         noise = np.repeat(noise, signal_shape[1], axis=1)
-
     elif noise_type == "Power Line":
         t = np.arange(signal_shape[0]) / fs
-        freq = 50  # 50 Hz (use 50 Hz for regions with 50 Hz power)
+        freq = 60  # 60 Hz (use 50 Hz for regions with 50 Hz power)
         amplitude = np.sqrt(2 * p_noise)
         noise = amplitude * np.sin(2 * np.pi * freq * t)[:, np.newaxis]
         noise = np.repeat(noise, signal_shape[1], axis=1)
-
     elif noise_type == "Muscle Artifact":
         noise = np.random.normal(0, np.sqrt(p_noise), signal_shape)
-        noise = np.diff(noise, axis=0, prepend=noise[0])  # High-pass effect
-
+        noise = np.diff(noise, axis=0, prepend=noise[0:1])  # Fix: Use [0:1] to keep 2D shape
     else:
         raise ValueError(f"Unknown noise type: {noise_type}")
     return noise
@@ -120,5 +116,3 @@ for record in records:
                 fs=fs
             )
             print(f"Saved {output_file} in {config_dir}")
-
-print("Noise generation complete!")

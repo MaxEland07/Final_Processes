@@ -15,8 +15,8 @@ os.makedirs(noise_dir, exist_ok=True)
 # Use record 100
 records = ["100_full.npz"]
 
-# Define SNR level (in dB) - only -6 dB for testing
-snr_level = -6
+# Define SNR levels (in dB) - from very noisy to clean
+snr_levels = [-6, 0, 6, 12, 18, 24]
 
 # Define noise types with abbreviations
 noise_types = {
@@ -198,38 +198,39 @@ for record in records:
         config_dir = os.path.join(noise_dir, config_name)
         os.makedirs(config_dir, exist_ok=True)
 
-        # Compute total noise power for the desired SNR
-        p_noise_total = p_signal / (10 ** (snr_level / 10))
+        for snr_level in snr_levels:
+            # Compute total noise power for the desired SNR
+            p_noise_total = p_signal / (10 ** (snr_level / 10))
 
-        # Process each channel separately
-        noisy_signals = np.zeros_like(clean_signal)
-        for ch in range(clean_signal.shape[1]):
-            # Generate noise for the current channel with independent random seed
-            np.random.seed(np.random.randint(1000) + ch)
-            total_noise = generate_combined_noise(config, (clean_signal.shape[0], 1), p_noise_total, fs)
-            noisy_signals[:, ch] = clean_signal[:, ch] + total_noise[:, 0]
+            # Process each channel separately
+            noisy_signals = np.zeros_like(clean_signal)
+            for ch in range(clean_signal.shape[1]):
+                # Generate noise for the current channel with independent random seed
+                np.random.seed(np.random.randint(1000) + ch)
+                total_noise = generate_combined_noise(config, (clean_signal.shape[0], 1), p_noise_total, fs)
+                noisy_signals[:, ch] = clean_signal[:, ch] + total_noise[:, 0]
 
-        # Verify and adjust noise power to ensure target SNR
-        noise_component = noisy_signals - clean_signal
-        p_noise_actual = np.mean(np.var(noise_component, axis=0))
-        if p_noise_actual > 0:
-            scaling_factor = np.sqrt(p_noise_total / p_noise_actual)
-            noisy_signals = clean_signal + noise_component * scaling_factor
+            # Verify and adjust noise power to ensure target SNR
+            noise_component = noisy_signals - clean_signal
+            p_noise_actual = np.mean(np.var(noise_component, axis=0))
+            if p_noise_actual > 0:
+                scaling_factor = np.sqrt(p_noise_total / p_noise_actual)
+                noisy_signals = clean_signal + noise_component * scaling_factor
 
-        # Save to file
-        record_name = record.replace(".npz", "")
-        output_file = f"record_{record_name}_{snr_level}dB.npz"
-        output_path = os.path.join(config_dir, output_file)
-        np.savez_compressed(
-            output_path,
-            signals=noisy_signals,
-            sample_indices=data["sample_indices"],
-            labels=data["labels"],
-            fs=fs
-        )
-        # Verify actual SNR
-        p_noise_actual = np.mean(np.var(noisy_signals - clean_signal, axis=0))
-        actual_snr = 10 * np.log10(p_signal / p_noise_actual)
-        print(f"Saved {output_file} in {config_dir}, Target SNR: {snr_level} dB, Actual SNR: {actual_snr:.2f} dB")
+            # Save to file
+            record_name = record.replace(".npz", "")
+            output_file = f"record_{record_name}_{snr_level}dB.npz"
+            output_path = os.path.join(config_dir, output_file)
+            np.savez_compressed(
+                output_path,
+                signals=noisy_signals,
+                sample_indices=data["sample_indices"],
+                labels=data["labels"],
+                fs=fs
+            )
+            # Verify actual SNR
+            p_noise_actual = np.mean(np.var(noisy_signals - clean_signal, axis=0))
+            actual_snr = 10 * np.log10(p_signal / p_noise_actual)
+            print(f"Saved {output_file} in {config_dir}, Target SNR: {snr_level} dB, Actual SNR: {actual_snr:.2f} dB")
 
 print("Noise generation complete.")

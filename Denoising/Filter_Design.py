@@ -237,7 +237,7 @@ def plot_summary_results(results_df, record_id):
 if __name__ == "__main__":
     record_id = "100"  # Hardcoded to Record 100
     print(f"Starting ECG signal denoising for Record {record_id}...")
-    results = process_record(record_id)
+    results = process_record(record_id, snr_levels=[6])
     if results is not None:
         print(f"Denoising complete. Results saved to filter_performance_{record_id}.csv")
     else:

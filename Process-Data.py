@@ -53,13 +53,13 @@ def preprocess_data(window_size=512):
                 if start < 0 or end > len(signals):
                     continue
                 
-                # Extract segment from channel 0 (e.g., MLII lead)
-                segment = signals[start:end, 0]  # Shape: (window_size,)
+                # Extract segment from both channels
+                segment = signals[start:end, :]  # Shape: (window_size, 2) - both channels included
                 segments.append(segment)
                 segment_labels.append(label)
             
             # Convert lists to NumPy arrays
-            segments_array = np.array(segments)  # Shape: (n_segments, window_size)
+            segments_array = np.array(segments)  # Shape: (n_segments, window_size, 2)
             labels_array = np.array(segment_labels)  # Shape: (n_segments,)
             
             # Save as .npz file

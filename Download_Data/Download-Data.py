@@ -17,19 +17,14 @@ def download_data():
     # Download Data
     print("Downloading Data...")
 
-    # Download MIT-BIH Arrhythmia Database
-    print("Downloading MIT-BIH Arrhythmia Database...")
-    records = wfdb.get_record_list('mitdb')
-    if not records:
-        print("No records found for Arrhythmia Database")
+    # Download MIT-BIH Arrhythmia Database (only record 100)
+    print("Downloading MIT-BIH Arrhythmia Database (record 100)...")
+    try:
+        wfdb.dl_database('mitdb', records=['100'], dl_dir=raw_dir)
+        print("Record 100 downloaded successfully.")
+    except Exception as e:
+        print(f"Error downloading record 100: {e}")
         return
-    
-    for record in records:
-        print(f"Downloading {record}...")
-        try:
-            wfdb.dl_database('mitdb', records=[record], dl_dir=raw_dir)
-        except Exception as e:
-            print(f"Error downloading {record}: {e}")
 
     # Download MIT-BIH Noise Stress Test Database
     print("Downloading MIT-BIH Noise Stress Test Database...")
@@ -41,5 +36,5 @@ def download_data():
 if __name__ == "__main__":
     download_data()
     print("Data Downloaded Successfully! Files saved in:")
-    print(f"- ./MIT-BIH Arrhythmia Database/Raw-Data (Arrhythmia Database)")
+    print(f"- ./MIT-BIH Arrhythmia Database/Raw-Data (Arrhythmia Database, record 100)")
     print(f"- ./MIT-BIH Arrhythmia Database/stress_test (Noise Stress Test Database)")

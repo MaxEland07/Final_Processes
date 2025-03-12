@@ -8,8 +8,8 @@ processed_dir = os.path.join(base_dir, "Processed-Data")
 noise_dir = os.path.join(base_dir, "Noise-Data")
 
 # Parameters
-record = "104"  # Record number to visualize
-snr_level = 24  # SNR level in dB (e.g., 24 dB)
+record = "100"  # Record number to visualize
+snr_level = 6  # SNR level in dB (e.g., 24 dB)
 configs_to_plot = ["G", "BW_MA", "PL", "MA", "PL_G"]  # Example configs: Gaussian, Baseline Wander + Muscle Artifact
 
 # Function to plot first 10 seconds with annotations

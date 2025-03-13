@@ -3,7 +3,7 @@ import numpy as np
 import wfdb
 
 # Define directories
-base_dir = "/kaggle/working/MIT-BIH Arrhythmia Database"
+base_dir = "./MIT-BIH Arrhythmia Database"
 processed_dir = os.path.join(base_dir, "Processed-Data")
 noisy_dir = os.path.join(processed_dir, "noisy_data")
 stress_test_dir = os.path.join(base_dir, "stress_test")
@@ -36,21 +36,24 @@ for noise_type in noise_files:
     if len(noises[noise_type]) < len(filtered_signals):
         noises[noise_type] = np.pad(noises[noise_type], (0, len(filtered_signals) - len(noises[noise_type])), 'wrap')
 
-# Add noise at SNR = 6 dB
-snr_value = 6  # dB
+# Add noise at different SNR values: -6, 0, and 6 dB
+snr_values = [-6, 0, 6]  # dB
 for noise_type in noise_files:
-    noisy_signals = np.zeros_like(filtered_signals)
     noise = noises[noise_type][:len(filtered_signals)]  # Ensure same length
-    for channel in range(filtered_signals.shape[1]):
-        noisy_signals[:, channel] = add_noise(filtered_signals[:, channel], noise, snr_value)
     
-    # Save noisy data
-    output_file = os.path.join(noisy_dir, f"100_full_{noise_type}_snr{snr_value}.npz")
-    np.savez(output_file,
-             signals=noisy_signals,
-             sample_indices=sample_indices,
-             labels=labels,
-             fs=fs)
-    print(f"Saved noisy data to {output_file} (shape: {noisy_signals.shape})")
+    for snr_value in snr_values:
+        noisy_signals = np.zeros_like(filtered_signals)
+        for channel in range(filtered_signals.shape[1]):
+            noisy_signals[:, channel] = add_noise(filtered_signals[:, channel], noise, snr_value)
+        
+        # Save noisy data
+        output_file = os.path.join(noisy_dir, f"100_full_{noise_type}_snr{snr_value}.npz")
+        np.savez(output_file,
+                signals=noisy_signals,
+                sample_indices=sample_indices,
+                labels=labels,
+                fs=fs)
+        print(f"Saved noisy data to {output_file} (shape: {noisy_signals.shape})")
 
-print(f"Noise addition complete! Noisy files saved in {noisy_dir}")
+print(f"Noise addition complete! Generated files at SNRs: {snr_values} dB")
+print(f"All noisy files saved in {noisy_dir}")

@@ -3,7 +3,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 # Define directories
-base_dir = "/kaggle/working/MIT-BIH Arrhythmia Database"
+base_dir = "./MIT-BIH Arrhythmia Database"
 processed_dir = os.path.join(base_dir, "Processed-Data")
 noisy_dir = os.path.join(processed_dir, "noisy_data")
 

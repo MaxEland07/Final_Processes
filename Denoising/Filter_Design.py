@@ -1,16 +1,13 @@
 import numpy as np
 import os
 import matplotlib.pyplot as plt
-from scipy import signal
-import pandas as pd
-from sklearn.metrics import mean_squared_error
 from keras.models import Sequential
 from keras.layers import LSTM, Dense, Dropout
 from keras.callbacks import EarlyStopping, ModelCheckpoint, ReduceLROnPlateau
+import tensorflow as tf
 
 # Define directories
 base_dir = "./MIT-BIH Arrhythmia Database"
-processed_dir = os.path.join(base_dir, "Processed-Data")
 compiled_dir = os.path.join(base_dir, "Compiled-Data")
 results_dir = "./Results"
 vis_dir = "./Visulisations/Filtering_Results"
@@ -20,29 +17,28 @@ for directory in [results_dir, vis_dir]:
     if not os.path.exists(directory):
         os.makedirs(directory, exist_ok=True)
 
-# Configuration parameters
-record_id = "100"
-noise_types = ["ma", "bw", "em"]
-training_mode = "combined"  # Options: "combined", "separate", or "specific"
-specific_noise = "ma"       # Only used if training_mode is "specific"
-
 # Build the LSTM-based denoising model
 def build_lstm_denoiser(input_shape=(512, 1)):
     """
     Builds the LSTM-based denoising model.
     """
     model = Sequential()
-    model.add(LSTM(140, input_shape=input_shape, return_sequences=True))
+    model.add(LSTM(128, input_shape=input_shape, return_sequences=True))
     model.add(Dropout(0.2))
-    model.add(Dense(140, activation='relu'))
-    model.add(LSTM(140, return_sequences=True))
+    model.add(Dense(128, activation='relu'))
+    model.add(LSTM(128, return_sequences=True))
     model.add(Dropout(0.2))
-    model.add(Dense(140, activation='relu'))
+    model.add(Dense(128, activation='relu'))
     model.add(Dense(1, activation='linear'))
+    
+    print(model.summary())
     return model
 
 # Training function
-def train_model(train_data, valid_data, model_name, epochs=50):
+def train_model(train_data, valid_data, model_name="ecg_denoiser", epochs=50):
+    """
+    Train the LSTM denoising model.
+    """
     # Load data
     X_train = train_data["noisy"]
     y_train = train_data["clean"]
@@ -53,7 +49,7 @@ def train_model(train_data, valid_data, model_name, epochs=50):
     print(f"Validation data: {X_val.shape[0]} samples")
     
     # Compile the model
-    model = build_lstm_denoiser()
+    model = build_lstm_denoiser(input_shape=(X_train.shape[1], X_train.shape[2]))
     model.compile(optimizer='adam', loss='mean_squared_error')
     
     # Callbacks for better training
@@ -71,7 +67,7 @@ def train_model(train_data, valid_data, model_name, epochs=50):
     history = model.fit(
         X_train, y_train, 
         epochs=epochs,
-        batch_size=32, 
+        batch_size=32,  # Larger batch size for faster training
         validation_data=(X_val, y_val),
         callbacks=callbacks,
         verbose=1
@@ -84,11 +80,12 @@ def train_model(train_data, valid_data, model_name, epochs=50):
     plt.figure(figsize=(10, 4))
     plt.plot(history.history['loss'], label='Training Loss')
     plt.plot(history.history['val_loss'], label='Validation Loss')
-    plt.title(f'LSTM Denoiser Training: {model_name}')
+    plt.title(f'ECG Denoiser Training')
     plt.xlabel('Epoch')
     plt.ylabel('MSE Loss')
     plt.legend()
-    plt.savefig(os.path.join(vis_dir, f"training_history_{model_name}.png"))
+    plt.grid(True)
+    plt.savefig(os.path.join(vis_dir, f"training_history.png"))
     plt.close()
     
     # Evaluate on validation set
@@ -97,70 +94,57 @@ def train_model(train_data, valid_data, model_name, epochs=50):
     
     return model, history
 
-# Main training workflow
-try:
-    if training_mode == "combined":
-        # Train a single model on all noise types combined
-        print("Training combined model for all noise types...")
-        train_file = os.path.join(compiled_dir, f"{record_id}_all_noise_types_train.npz")
-        valid_file = os.path.join(compiled_dir, f"{record_id}_all_noise_types_valid.npz")
+# Main function
+def main():
+    try:
+        # Check if the dataset files exist
+        train_file = os.path.join(compiled_dir, "ecg_denoising_train.npz")
+        test_file = os.path.join(compiled_dir, "ecg_denoising_test.npz")
         
-        train_data = np.load(train_file)
-        valid_data = np.load(valid_file)
+        if not os.path.exists(train_file) or not os.path.exists(test_file):
+            raise FileNotFoundError("Training/test dataset files not found")
         
+        # Load datasets
+        print(f"Loading datasets from {compiled_dir}...")
+        train_data = np.load(train_file, allow_pickle=True)
+        test_data = np.load(test_file, allow_pickle=True)
+        
+        print(f"Loaded training dataset with {train_data['noisy'].shape[0]} windows")
+        print(f"Loaded test dataset with {test_data['noisy'].shape[0]} windows")
+        
+        # Configure memory usage for large datasets
+        gpus = tf.config.experimental.list_physical_devices('GPU')
+        if gpus:
+            try:
+                for gpu in gpus:
+                    tf.config.experimental.set_memory_growth(gpu, True)
+                print("GPU memory growth enabled")
+            except RuntimeError as e:
+                print(f"GPU memory configuration error: {e}")
+        
+        # Train a model on all noise types and SNRs combined
+        print("Training LSTM model on combined dataset...")
+        
+        # Use test data as validation
         model, history = train_model(
             train_data, 
-            valid_data, 
-            model_name="lstm_denoiser_all_noise_types"
+            test_data, 
+            model_name="ecg_denoiser",
+            epochs=5
         )
         
-    elif training_mode == "separate":
-        # Train separate models for each noise type
-        for noise_type in noise_types:
-            print(f"\nTraining model for {noise_type.upper()} noise...")
-            train_file = os.path.join(compiled_dir, f"{record_id}_{noise_type}_train.npz")
-            valid_file = os.path.join(compiled_dir, f"{record_id}_{noise_type}_valid.npz")
-            
-            if not os.path.exists(train_file) or not os.path.exists(valid_file):
-                print(f"Files for {noise_type} not found, skipping...")
-                continue
-                
-            train_data = np.load(train_file)
-            valid_data = np.load(valid_file)
-            
-            model, history = train_model(
-                train_data, 
-                valid_data, 
-                model_name=f"lstm_denoiser_{noise_type}"
-            )
-            
-    elif training_mode == "specific":
-        # Train on a specific noise type
-        noise_type = specific_noise
-        print(f"\nTraining model for {noise_type.upper()} noise...")
-        train_file = os.path.join(compiled_dir, f"{record_id}_{noise_type}_train.npz")
-        valid_file = os.path.join(compiled_dir, f"{record_id}_{noise_type}_valid.npz")
+        print("\nTraining complete!")
         
-        if not os.path.exists(train_file) or not os.path.exists(valid_file):
-            raise FileNotFoundError(f"Files for {noise_type} not found")
-            
-        train_data = np.load(train_file)
-        valid_data = np.load(valid_file)
-        
-        model, history = train_model(
-            train_data, 
-            valid_data, 
-            model_name=f"lstm_denoiser_{noise_type}",
-            epochs=100  # More epochs for specific training
-        )
-    
-    print("\nAll training complete!")
-    
-except FileNotFoundError as e:
-    print(f"Error: {e}")
-    print("Please run Window.py first with the compile_datasets function.")
-except Exception as e:
-    print(f"Error during training: {str(e)}")
+    except FileNotFoundError as e:
+        print(f"Error: {e}")
+        print("Please run Window.py first to create the unified dataset.")
+    except Exception as e:
+        print(f"Error during training: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+if __name__ == "__main__":
+    main()
 
 
 

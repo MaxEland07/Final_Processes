@@ -5,7 +5,7 @@ import wfdb
 # Define directories
 base_dir = "./MIT-BIH Arrhythmia Database"
 processed_dir = os.path.join(base_dir, "Processed-Data")
-noisy_dir = os.path.join(processed_dir, "noisy_data")
+noisy_dir = os.path.join(base_dir, "Noisy-Data")
 stress_test_dir = os.path.join(base_dir, "stress_test")
 
 # Create noisy_data directory if it doesn't exist
